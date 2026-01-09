@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Chat Test</title>
+  <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+</head>
+<body>
+  <h2>WebSocket Chat Test</h2>
+
+  <div id="main-container">
+
+  </div>
+
+
+  <script>
+    let stompClient = null;
+    let room;
+    let username;
+    function connect() {
+      const socket = new SockJS('/chat-websocket');
+      stompClient = Stomp.over(socket);
+      stompClient.connect({}, function(frame) {
+        room = document.getElementById('room').value;
+        username = document.getElementById('username').value;
+        toggleDisplay("ROOM");
+
+        stompClient.subscribe('/broker/' + room, function(message) {
+          console.log("SUBSCRIBED")
+          console.log("------------> message: " + message)
+          const chat = document.getElementById('chat');
+          chat.innerHTML += "<p>" + JSON.parse(message.body).sender + ": " + JSON.parse(message.body).content + "</p>";
+        });
+
+        stompClient.send("/app/chat.addUser", {}, JSON.stringify({
+          sender: username,
+          type: "JOIN",
+          content: "",
+          roomId: room
+        }));
+      });
+      console.log("ckpt1")
+    }
+    function sendMessage(event) {
+      if(event) {
+        event.preventDefault();
+      }
+      // const room = document.getElementById('room').value;
+      stompClient.send("/app/chat.sendMessage", {}, JSON.stringify({
+        sender: username,
+        content: document.getElementById('msg').value,
+        type: "CHAT",
+        roomId: room
+      }));
+    }
+
+    function toggleDisplay(page) {
+      if(page != "HOME" & page != "ROOM"){
+        console.log("ERROR: toggleDisplaye: invalid page value : " + page)
+        return;
+      }
+      let container = document.getElementById("main-container");
+      if(page == "HOME"){
+        container.innerHTML=`
+            Room: <input id="room" palceholder="Enter Room Id" /><br><br>
+            Username: <input id="username" palceholder="Enter your name" /><br><br>
+            <button onClick="connect()"> Connect </button>
+        `
+      } else {
+        container.innerHTML=`
+        Room: <p>${room}</p> &nbsp;
+        Username: <p>${username}</p><br>
+        <input id="msg" placeholder="Message"/>
+        <button type="button" onClick="sendMessage()">SEND</button><br><br>
+        <button type="button" onClick="disconnect()"> Disconnect </button> <br>
+        <div id="chat"></div>
+
+        `
+      }
+    }
+
+    toggleDisplay("HOME")
+  </script>
+</body>
+</html>
